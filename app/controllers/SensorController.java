@@ -44,7 +44,6 @@ public class SensorController extends Controller {
     public static Result getSensorList(){
         ArrayNode listOut = JsonNodeFactory.instance.arrayNode();
         List<Sensor> listSensor = Sensor.find.all();
-        if(listSensor.isEmpty()) return badRequest(CreateError("sensor not found")).as("application/json");
         Iterator<Sensor> it = listSensor.iterator();
         while (it.hasNext()) {
             listOut.add(it.next().toJson());
@@ -58,7 +57,6 @@ public class SensorController extends Controller {
         ObjectNode json = sensor.toJson();
         ArrayNode listArrayNode = json.putArray("resources");
         List<Resource> listResource = Resource.find.all();
-            if(listResource.isEmpty()) return badRequest(CreateError("resources not found")).as("application/json");
             Iterator<Resource> it = listResource.iterator();
             while (it.hasNext()) {
                 listArrayNode.add(it.next().toJson());

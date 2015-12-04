@@ -96,7 +96,7 @@ public class CaliforniumServer extends CoapServer {
                 serverActor.tell(new CoapMessageReceived(exchange.getRequestText()), null);
                 JsonNode json = mapper.readTree(exchange.getRequestText());
                 //////
-                readJSON(json,exchange);
+                readJSON(json, exchange);
                 //////
                 Response response = new Response(CoAP.ResponseCode.CREATED);
                 response.setPayload(json.toString());
@@ -109,13 +109,26 @@ public class CaliforniumServer extends CoapServer {
             }
         }
 
+        public ObjectNode CreateError(String message){
+            ObjectNode resp = Json.newObject();
+            resp.put("error",message);
+            return resp;
+        }
+
         public void readJSON(JsonNode json, CoapExchange exchange) {
             String sensorToken;
             String resourceToken;
             double value;
             long timeStamp;
 
-            if (!json.has("label") && !json.has("resource")) exchange.respond(ResponseCode.UNSUPPORTED_CONTENT_FORMAT);
+            if (!json.has("label")) {
+                exchange.respond(ResponseCode.BAD_REQUEST, CreateError("missing label").toString());
+                return;
+            }
+            if (!json.has("resource")) {
+                exchange.respond(ResponseCode.BAD_REQUEST, CreateError("missing resource").toString());
+                return;
+            }
 
             JsonNode resourceNode = json.path("resource");
             JsonNode dataNode = resourceNode.path("data");
@@ -123,32 +136,33 @@ public class CaliforniumServer extends CoapServer {
             sensorToken = json.path("sensorToken").asText();
             Sensor sensor = Sensor.find.where().ilike("SENSOR_TOKEN", sensorToken).findUnique();
             if (sensor == null) {
-                exchange.respond(ResponseCode.NOT_FOUND);
+                exchange.respond(ResponseCode.NOT_FOUND,CreateError("sensor not found").toString());
+                return;
             } else {
                 List<Resource> listResource = sensor.getResources();
                 if (resourceNode.isMissingNode()) {
-                    exchange.respond(ResponseCode.UNSUPPORTED_CONTENT_FORMAT);
-                } else {
-                    resourceToken = resourceNode.path("resourceToken").asText();
-                    Iterator<Resource> it = listResource.iterator();
-                    while (it.hasNext()) {
-                        Resource current = it.next();
-                        if (!current.getResourceToken().equals(resourceToken)) {
-                            exchange.respond(ResponseCode.UNSUPPORTED_CONTENT_FORMAT);
-                        } else {
-                            if (!dataNode.isArray()) {
-                                exchange.respond(ResponseCode.UNSUPPORTED_CONTENT_FORMAT);
-                            } else {
-                                for (JsonNode node : dataNode) {
-                                    timeStamp = node.path("timestamp").asLong();
-                                    value = node.path("value").asDouble();
-                                    ResourceData data = new ResourceData(value, timeStamp);
-                                    current.getData().add(data);
-                                    current.save();
-                                    data.save();
-                                    break;
-                                }
-                            }
+                    exchange.respond(ResponseCode.BAD_REQUEST,CreateError("resource not found").toString());
+                    return;
+                }
+                resourceToken = resourceNode.path("resourceToken").asText();
+                Iterator<Resource> it = listResource.iterator();
+                while (it.hasNext()) {
+                    Resource current = it.next();
+                    if (!current.getResourceToken().equals(resourceToken)) {
+                        exchange.respond(ResponseCode.BAD_REQUEST,CreateError("resourceToken not found").toString());
+                        return;
+                    }
+                    if (!dataNode.isArray()) {
+                        exchange.respond(ResponseCode.BAD_REQUEST,CreateError("data not found").toString());
+                    } else {
+                        for (JsonNode node : dataNode) {
+                            timeStamp = node.path("timestamp").asLong();
+                            value = node.path("value").asDouble();
+                            ResourceData data = new ResourceData(value, timeStamp);
+                            current.getData().add(data);
+                            current.save();
+                            data.save();
+                            break;
                         }
                     }
                 }
