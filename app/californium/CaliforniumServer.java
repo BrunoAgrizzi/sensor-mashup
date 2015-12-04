@@ -117,39 +117,45 @@ public class CaliforniumServer extends CoapServer {
 
             sensorToken = json.path("sensorToken").asText();
             Sensor sensor = Sensor.find.where().ilike("SENSOR_TOKEN",sensorToken).findUnique();
-            List<Resource> listResource = sensor.getResources();
+            if(sensor != null) {
+                List<Resource> listResource = sensor.getResources();
 
-            if (resourceNode.isMissingNode()) {
-                //TODO nó do JSON não contem resource
-                exchange.respond(ResponseCode.UNSUPPORTED_CONTENT_FORMAT);
-            } else {
-                resourceToken = resourceNode.path("resourceToken").asText();
-                Iterator<Resource> it = listResource.iterator();
-                while(it.hasNext()){
-                    Resource current = it.next();
-                    if(current.getResourceToken().equals(resourceToken)){
-                        if (!dataNode.isArray()) {
-                            //TODO erro no formato JSON, deveria ser um Array
-                            exchange.respond(ResponseCode.UNSUPPORTED_CONTENT_FORMAT);
-                        } else {
-                            for (JsonNode node : dataNode) {
-                                timeStamp = node.path("timestamp").asLong();
-                                value = node.path("value").asDouble();
-                                ResourceData data = new ResourceData(value,timeStamp);
-                                current.getData().add(data);
-                                current.save();
-                                data.save();
-                                break;
+                if (resourceNode.isMissingNode()) {
+                    //TODO nó do JSON não contem resource
+                    exchange.respond(ResponseCode.UNSUPPORTED_CONTENT_FORMAT);
+                } else {
+                    resourceToken = resourceNode.path("resourceToken").asText();
+                    Iterator<Resource> it = listResource.iterator();
+                    while (it.hasNext()) {
+                        Resource current = it.next();
+                        if (current.getResourceToken().equals(resourceToken)) {
+                            if (!dataNode.isArray()) {
+                                //TODO erro no formato JSON, deveria ser um Array
+                                exchange.respond(ResponseCode.UNSUPPORTED_CONTENT_FORMAT);
+                            } else {
+                                for (JsonNode node : dataNode) {
+                                    timeStamp = node.path("timestamp").asLong();
+                                    value = node.path("value").asDouble();
+                                    ResourceData data = new ResourceData(value, timeStamp);
+                                    current.getData().add(data);
+                                    current.save();
+                                    data.save();
+                                    break;
+                                }
                             }
+                        } else {
+                            //TODO não existe o resource para esse sensor
+                            exchange.respond(ResponseCode.UNSUPPORTED_CONTENT_FORMAT);
                         }
-                    } else {
-                        //TODO não existe o resource para esse sensor
-                        exchange.respond(ResponseCode.UNSUPPORTED_CONTENT_FORMAT);
+
                     }
 
                 }
-
+            } else {
+                exchange.respond(ResponseCode.NOT_FOUND);
             }
+
+
         }
     }
 }
