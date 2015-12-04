@@ -25,6 +25,7 @@ import java.util.List;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import models.Resource;
 import models.ResourceData;
 import models.Sensor;
@@ -40,6 +41,8 @@ import play.Logger;
 import actors.messages.*;
 
 import akka.actor.*;
+import play.libs.Json;
+
 import static akka.pattern.Patterns.ask;
 
 /**
@@ -106,31 +109,34 @@ public class CaliforniumServer extends CoapServer {
             }
         }
 
-        public void readJSON(JsonNode json, CoapExchange exchange){
+        public void readJSON(JsonNode json, CoapExchange exchange) {
             String sensorToken;
             String resourceToken;
             double value;
             long timeStamp;
 
+            if (!json.has("label") && !json.has("resource")) exchange.respond(ResponseCode.UNSUPPORTED_CONTENT_FORMAT);
+
             JsonNode resourceNode = json.path("resource");
             JsonNode dataNode = resourceNode.path("data");
 
             sensorToken = json.path("sensorToken").asText();
-            Sensor sensor = Sensor.find.where().ilike("SENSOR_TOKEN",sensorToken).findUnique();
-            if(sensor != null) {
+            Sensor sensor = Sensor.find.where().ilike("SENSOR_TOKEN", sensorToken).findUnique();
+            if (sensor == null) {
+                exchange.respond(ResponseCode.NOT_FOUND);
+            } else {
                 List<Resource> listResource = sensor.getResources();
-
                 if (resourceNode.isMissingNode()) {
-                    //TODO nó do JSON não contem resource
                     exchange.respond(ResponseCode.UNSUPPORTED_CONTENT_FORMAT);
                 } else {
                     resourceToken = resourceNode.path("resourceToken").asText();
                     Iterator<Resource> it = listResource.iterator();
                     while (it.hasNext()) {
                         Resource current = it.next();
-                        if (current.getResourceToken().equals(resourceToken)) {
+                        if (!current.getResourceToken().equals(resourceToken)) {
+                            exchange.respond(ResponseCode.UNSUPPORTED_CONTENT_FORMAT);
+                        } else {
                             if (!dataNode.isArray()) {
-                                //TODO erro no formato JSON, deveria ser um Array
                                 exchange.respond(ResponseCode.UNSUPPORTED_CONTENT_FORMAT);
                             } else {
                                 for (JsonNode node : dataNode) {
@@ -143,19 +149,10 @@ public class CaliforniumServer extends CoapServer {
                                     break;
                                 }
                             }
-                        } else {
-                            //TODO não existe o resource para esse sensor
-                            exchange.respond(ResponseCode.UNSUPPORTED_CONTENT_FORMAT);
                         }
-
                     }
-
                 }
-            } else {
-                exchange.respond(ResponseCode.NOT_FOUND);
             }
-
-
         }
     }
 }
