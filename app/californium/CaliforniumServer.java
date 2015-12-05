@@ -121,10 +121,6 @@ public class CaliforniumServer extends CoapServer {
             double value;
             long timeStamp;
 
-            if (!json.has("label")) {
-                exchange.respond(ResponseCode.BAD_REQUEST, CreateError("missing label").toString());
-                return;
-            }
             if (!json.has("resource")) {
                 exchange.respond(ResponseCode.BAD_REQUEST, CreateError("missing resource").toString());
                 return;
@@ -156,7 +152,8 @@ public class CaliforniumServer extends CoapServer {
                         exchange.respond(ResponseCode.BAD_REQUEST,CreateError("data not found").toString());
                     } else {
                         for (JsonNode node : dataNode) {
-                            timeStamp = node.path("timestamp").asLong();
+                            if(node.has("timestamp")) timeStamp = node.path("timestamp").asLong();
+                            else timeStamp = System.currentTimeMillis();
                             value = node.path("value").asDouble();
                             ResourceData data = new ResourceData(value, timeStamp);
                             current.getData().add(data);
